@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {
+      "name": "python",
+      "patterns": ["**/*.py"],
+      "command": "python3 -m py_compile {files}"
+    },
+    {
+      "name": "json",
+      "patterns": ["**/*.json"],
+      "command": "python3 -m json.tool {file} > /dev/null",
+      "per_file": true
+    }
+  ]
+}
