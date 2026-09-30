@@ -69,5 +69,19 @@ class GitTests(unittest.TestCase):
         self.assertEqual(gitbuild.changed_files("main"), ["n.py"])
 
 
+class RunTests(unittest.TestCase):
+    def test_run_step_streams_output_and_code(self):
+        lines = []
+        rc = gitbuild.run_step(f'{sys.executable} -c "print(1); print(2)"', on_line=lines.append)
+        self.assertEqual((rc, lines), (0, ["1", "2"]))
+
+    def test_run_plan_stops_on_failure(self):
+        ok, bad = f'{sys.executable} -c "pass"', f'{sys.executable} -c "raise SystemExit(3)"'
+        res = gitbuild.run_plan([("a", bad), ("b", ok)])
+        self.assertEqual([r["returncode"] for r in res], [3])
+        res = gitbuild.run_plan([("a", bad), ("b", ok)], keep_going=True)
+        self.assertEqual([r["returncode"] for r in res], [3, 0])
+
+
 if __name__ == "__main__":
     unittest.main()
