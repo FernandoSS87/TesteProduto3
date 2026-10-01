@@ -17,8 +17,33 @@ import sys
 
 DEFAULT_CONFIG = "gitbuild.json"
 
-# Executável do git. O app desktop aponta para o MinGit embutido via GITBUILD_GIT.
-GIT_EXE = os.environ.get("GITBUILD_GIT", "git")
+
+
+def _bundled_git_dir():
+    """Pasta cmd/ do MinGit embutido pelo PyInstaller (ou ao lado do script), se existir."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    cmd_dir = os.path.join(base, "mingit", "cmd")
+    return cmd_dir if os.path.isfile(os.path.join(cmd_dir, "git.exe")) else None
+
+
+def _resolve_git():
+    """GITBUILD_GIT > MinGit embutido > git do PATH."""
+    if os.environ.get("GITBUILD_GIT"):
+        return os.environ["GITBUILD_GIT"]
+    cmd_dir = _bundled_git_dir()
+    return os.path.join(cmd_dir, "git.exe") if cmd_dir else "git"
+
+
+GIT_EXE = _resolve_git()
+
+
+def _child_env():
+    """Ambiente dos comandos de build: coloca o git embutido no PATH para regras que o chamem."""
+    env = os.environ.copy()
+    cmd_dir = _bundled_git_dir()
+    if cmd_dir:
+        env["PATH"] = cmd_dir + os.pathsep + env.get("PATH", "")
+    return env
 
 # Evita abrir janela de console ao chamar processos a partir do app gráfico no Windows.
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -110,7 +135,7 @@ def run_step(cmd, cwd=None, on_line=None):
     """Executa um comando repassando cada linha de saída para on_line. Retorna o exit code."""
     proc = subprocess.Popen(
         cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, errors="replace", creationflags=_NO_WINDOW,
+        text=True, errors="replace", creationflags=_NO_WINDOW, env=_child_env(),
     )
     with proc.stdout:
         for line in proc.stdout:

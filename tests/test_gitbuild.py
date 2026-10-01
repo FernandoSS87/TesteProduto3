@@ -69,6 +69,29 @@ class GitTests(unittest.TestCase):
         self.assertEqual(gitbuild.changed_files("main"), ["n.py"])
 
 
+class ResolveGitTests(unittest.TestCase):
+    def test_env_overrides_then_bundled_then_path(self):
+        old = os.environ.pop("GITBUILD_GIT", None)
+        try:
+            self.assertEqual(gitbuild._resolve_git(), "git")
+            with tempfile.TemporaryDirectory() as tmp:
+                cmd = os.path.join(tmp, "mingit", "cmd")
+                os.makedirs(cmd)
+                open(os.path.join(cmd, "git.exe"), "w").close()
+                sys._MEIPASS = tmp
+                try:
+                    self.assertEqual(gitbuild._resolve_git(), os.path.join(cmd, "git.exe"))
+                    self.assertTrue(gitbuild._child_env()["PATH"].startswith(cmd))
+                    os.environ["GITBUILD_GIT"] = "custom"
+                    self.assertEqual(gitbuild._resolve_git(), "custom")
+                finally:
+                    del sys._MEIPASS
+        finally:
+            os.environ.pop("GITBUILD_GIT", None)
+            if old:
+                os.environ["GITBUILD_GIT"] = old
+
+
 class RunTests(unittest.TestCase):
     def test_run_step_streams_output_and_code(self):
         lines = []
